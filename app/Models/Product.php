@@ -20,6 +20,6 @@ class Product extends Model
     }
     
     public function gallery(){
-        return $this->hasMany(ProductVariation::class);
+        return $this->hasMany(Gallery::class);
     }
 }

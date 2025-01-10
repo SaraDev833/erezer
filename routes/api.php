@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\BrandController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\SubcategoryController;
+use App\Http\Controllers\Api\TagController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\Route;
 Route::apiResource('categories' , CategoryController::class);
 Route::apiResource('subcategories', SubcategoryController::class);
 Route::apiResource('brands', BrandController::class);
+Route::apiResource('tags', TagController::class);
+Route::apiResource('products', TagController::class);
 
 // get subcategories by Category
 Route::get('categories/{slug}/subcategories', [SubcategoryController::class, 'getByCategory']);

@@ -73,6 +73,6 @@ class BrandController extends Controller
             return response()->json(['msg'=>'brand is not found'] , 404);
         }
         $brand->delete();
-        return response()->json(['msg'=>'Brand deleted successfully'] , 404);
+        return response()->json(['msg'=>'Brand deleted successfully'] , 200);
     }
 }
