@@ -7,6 +7,7 @@ use App\Models\Product;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 
@@ -40,7 +41,8 @@ class ProductController extends Controller
             'long_desp'=>'required',
             'brand'=>'required',
             'prev_image'=>'required|image|mimes:jpg,jpeg,png',
-            'gallery_images'=>'required|image|mimes:jpg,jpeg,png',
+            'gallery_images'=>'required|array',
+            'gallery_images.*'=>'image|mimes:jpg,jpeg,png',
             'tag_ids'=>'array',
             'tag_ids.*'=>'exists:tags,id',
             'color_id'=>'required|exists:colors,id',
@@ -57,8 +59,8 @@ class ProductController extends Controller
               'Long_desp.required'=>"Short Description is required",
               'prev_image.image'=>'The preview Image must be a valid image file',
               'prev_image.mimes'=>'The preview Image must be in jpg ,jpeg or png format',
-              'gallery_images.image'=>'The Image must be a valid image file',
-              'gallery_images.mimes'=>'The Image must be in jpg ,jpeg or png format',
+              'gallery_images.*.image' => 'Each gallery image must be a valid image file.',
+    'gallery_images.*.mimes' => 'Each gallery image must be in jpg, jpeg, or png format.',
               'tag_ids.*.exists'=>'One or more selected tags are invalid',
               'color_id.required'=>'The color is required',
               'color_id.exists'=>'The selected color does not exist',
@@ -85,6 +87,7 @@ class ProductController extends Controller
         'prev_image'=>$previewImagePath,
        ]));
        if(isset($validated['tag_ids'])){
+        
         $product->tags()->sync($validated['tag_ids']);
        }
 
@@ -94,16 +97,26 @@ class ProductController extends Controller
          'price'=>$validated['price'],
          'quantity'=>$validated['quantity'],
        ]);
-       if ($request->hasFile('gallery_images')) {
+     
+    if ($request->hasFile('gallery_images') && is_array($request->file('gallery_images'))) {
         foreach ($request->file('gallery_images') as $galleryImage) {
-            $galleryImageName = uniqid() . '-' . time() . '.' . $galleryImage->getClientOriginalExtension();  // Generate unique name
-            $galleryImagePath = $galleryImage->storeAs('products/gallery', $galleryImageName, 'public');  // Store gallery image with unique name
-            
-            \Log::info("Stored gallery image: $galleryImagePath");
-            $product->gallery()->create([
-                'images' => $galleryImagePath,
-                'product_id' => $product->id,  // Associate with the current product
+          $galleryImagePath= null;
+          if($galleryImage){
+            $galleryImageName = uniqid().'-'. time() .'.'. $galleryImage->getClientOriginalExtension();
+            $galleryImagePath= $galleryImage->storeAs('products/gallery' , $galleryImageName , 'public');
+            Log::info('Creating gallery for product_id: ' . $product->id . ' with image path: ' . $galleryImagePath);
+
+
+            $gallery = $product->gallery()->create([
+                'product_id'=>$product->id,
+                'images'=>$galleryImagePath,
             ]);
+
+            Log::info('gallery image created' . json_encode($gallery));
+          }
+          else{
+            Log::error('no gallery image found in the request');
+          }
         }
     }
     
@@ -112,7 +125,7 @@ class ProductController extends Controller
         $product->tags()->sync($validated['tag_ids']);
     }
     
-      return response()->json($product->load('tags' , 'variations.color' , 'variations.size' , 'gallery') , 201);
+      return response()->json($product->load('gallery') , 201);
     }
 
     /**
@@ -150,7 +163,8 @@ class ProductController extends Controller
             'long_desp'=>'required',
             'brand'=>'required',
             'prev_image'=>'required|image|mimes:jpg,jpeg,png',
-            'gallery_images'=>'required|image|mimes:jpg,jpeg,png',
+            'gallery_images'=>'required|array',
+            'gallery_images.*'=>'image|mimes:jpg,jpeg,png',
             'tag_ids'=>'array',
             'tag_ids.*'=>'exists:tags,id',
             'color_id'=>'required|exists:colors,id',
@@ -167,8 +181,8 @@ class ProductController extends Controller
               'Long_desp.required'=>"Short Description is required",
               'prev_image.image'=>'The preview Image must be a valid image file',
               'prev_image.mimes'=>'The preview Image must be in jpg ,jpeg or png format',
-              'gallery_images.image'=>'The Image must be a valid image file',
-              'gallery_images.mimes'=>'The Image must be in jpg ,jpeg or png',
+              'gallery_images.*.image' => 'Each gallery image must be a valid image file.',
+    'gallery_images.*.mimes' => 'Each gallery image must be in jpg, jpeg, or png format.',
               'tag_ids.*.exists'=>'One or more selected tags are invalid',
               'color_id.required'=>'The color is required',
               'color_id.exists'=>'The selected color does not exist',
@@ -188,7 +202,7 @@ class ProductController extends Controller
                 Storage::disk('public')->delete('products/preview/' . $product->preview_image);
                 
                 $previewImage = $request->file('prev_image');
-                $previewImageName = uniqid().'-'.$previewImage->getClientOrOriginalExtension();
+                $previewImageName = uniqid().'-'.$previewImage->getClientOriginalExtension();
                 $previewImagePath= $previewImage->storeAs('products/preview' , $previewImageName ,'public');
             }
          }
@@ -210,18 +224,23 @@ class ProductController extends Controller
         'quantity' => $validated['quantity'],
     ]);
           
-    if ($request->hasFile('gallery_images')) {
-        foreach ($request->file('gallery_images') as $galleryImage) {
-            $galleryImageName = uniqid() . '-' . time() . '.' . $galleryImage->getClientOriginalExtension();  // Generate unique name
-            $galleryImagePath = $galleryImage->storeAs('products/gallery', $galleryImageName, 'public');  // Store gallery image with unique name
-            
-            // Create the gallery record and associate it with the product
-            $product->gallery()->create([
-                'images' => $galleryImagePath,
-                'product_id' => $product->id,  // Associate with the current product
-            ]);
+      if($request->hasFile('gallery_images') && is_array($request->file('gallery_images'))){
+        $product->gallery()->each(function ($gallery){
+            Storage::disk('public')->delete($gallery->images);
+            $gallery->delete();
+        });
+
+        foreach($request->file('gallery_images') as $galleryImage){
+            $galleryImagePath= null;
+              $galleryImageName = uniqid().'-'.time().'.'.$galleryImage->getClientOriginalExtension();
+              $galleryImagePath = $galleryImage->storeAs('products/gallery' , $galleryImageName , 'public');
+              $product->gallery()->create([
+                'images'=>$galleryImagePath,
+                'product_id'=>$product->id,
+              ]);
         }
-    }
+      }
+
     return response()->json($product->load('tags' , 'variations.color' , 'variations.size' ,'variations.price', 'variations.quantity', 'gallery') , 201);
     }
 
