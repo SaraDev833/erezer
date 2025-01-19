@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SizeController;
 use App\Http\Controllers\Api\SubcategoryController;
 use App\Http\Controllers\Api\TagController;
+use App\Http\Controllers\Api\userController;
+use App\Http\Controllers\Api\UserController as ApiUserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -32,7 +34,7 @@ Route::apiResource('tags', TagController::class);
 Route::apiResource('products', ProductController::class);
 Route::apiResource('colors', colorController::class);
 Route::apiResource('sizes', SizeController::class);
-
+Route::apiResource('users' , UserController::class);
 
 
 // custom routes
